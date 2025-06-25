@@ -13,9 +13,39 @@ import time
 import requests
 import pandas as pd
 import yfinance as yf
+import logging
+
+from sqlalchemy import create_engine, Column, String, Date, Float, Integer
+from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy.orm import sessionmaker
+
+# Logging config
+logging.basicConfig(level=logging.INFO, format='%(asctime)s %(levelname)s %(message)s')
+logger = logging.getLogger(__name__)
+
+DATA_DIR = 'data'
+PRICES_DIR = os.path.join(DATA_DIR, 'prices')
+DB_PATH = os.path.join(DATA_DIR, 'prices.db')
+
+Base = declarative_base()
+
+class Price(Base):
+    __tablename__ = 'prices'
+    symbol = Column(String, primary_key=True)
+    date   = Column(Date, primary_key=True)
+    open   = Column(Float)
+    high   = Column(Float)
+    low    = Column(Float)
+    close  = Column(Float)
+    volume = Column(Integer)
+
+os.makedirs(DATA_DIR, exist_ok=True)
+engine = create_engine(f'sqlite:///{DB_PATH}')
+Session = sessionmaker(bind=engine)
+Base.metadata.create_all(engine)
 
 # Replace 'YOUR_API_KEY' with your actual Financial Modeling Prep API key.
-API_KEY = 'YOU_API_KEY'
+API_KEY = 'YOUR_API_KEY'
 # Endpoint for listing ETFs; limit ensures full universe
 FMP_URL = (
     f'https://financialmodelingprep.com/api/v3/etf/list'
@@ -60,13 +90,14 @@ def fetch_etf_list():
 def download_prices(df):
     """
     Download daily OHLCV for each ticker in df and save to CSV.
+    save to CSV and insert into SQLite via SQLAlchemy.
     """
     # ensure prices output directory exists
     os.makedirs(PRICES_DIR, exist_ok=True)
-
+    session= Session()
     tickers = df['ticker'].tolist()
     for ticker in tickers:
-        print(f"Downloading {ticker}...")
+        logger.info(f"Downloading {ticker}...")
         for attempt in range(1, MAX_RETRIES+1):
             try:
                 hist = yf.Ticker(ticker).history(period=PERIOD, interval=INTERVAL, auto_adjust=False)
@@ -74,6 +105,19 @@ def download_prices(df):
                     raise ValueError("No data returned")
                 out_file = os.path.join(PRICES_DIR, f"{ticker}.csv")
                 hist.to_csv(out_file, index_label='Date')
+                session = Session()
+                for row in hist.reset_index().itertuples():
+                    session.merge(Price(
+                        symbol = ticker,
+                        date   = row.Date.date(),
+                        open   = row.Open,
+                        high   = row.High,
+                        low    = row.Low,
+                        close  = row.Close,
+                        volume = int(row.Volume)
+                    ))
+                session.commit()
+                session.close()
                 break
             except Exception as err:
                 print(f"  Attempt {attempt} failed for {ticker}: {err}")
