@@ -16,6 +16,10 @@
 
   * GitHub Actions runs `pytest` on every push
 
+* **Data Ingestion**
+
+  * Persist ETF OHLCV data into SQLite using SQLAlchemy
+  * Provide analysis.py to query and display top-10 ETF gainers over the past year
 ## Usage
 
 ```powershell
@@ -40,6 +44,7 @@ pytest -q
 ```text
 .
 ├── etf_pipeline.py       # Main ETL script
+├── analysis.py           # Query top-10 ETF gainers
 ├── requirements.txt      # Python dependencies
 ├── tests/                # Unit tests
 │   └── test_etf_pipeline.py
