@@ -1,7 +1,5 @@
 # ETF Data Pipeline
 
-![CI](https://github.com/Qichen-J/etf-pipeline/actions/workflows/ci.yml/badge.svg)
-
 **A Python ETL pipeline for fetching ETF lists & historical prices, with tests & CI**
 
 ## Features
