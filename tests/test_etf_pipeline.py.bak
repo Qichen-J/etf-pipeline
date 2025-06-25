@@ -1,0 +1,40 @@
+﻿import os, sys
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+
+import pytest
+import pandas as pd
+from etf_pipeline import fetch_etf_list, download_prices
+
+@pytest.fixture
+def sample_symbols(monkeypatch):
+    fake = ['TEST']
+    monkeypatch.setattr('etf_pipeline.fetch_etf_list', lambda: fake)
+    return fake
+
+@pytest.fixture
+def tmp_dir(tmp_path):
+    return tmp_path
+
+def test_fetch_etf_list(sample_symbols):
+    symbols = fetch_etf_list()
+    assert isinstance(symbols, list)
+    assert symbols == ['TEST']
+
+def test_download_prices(monkeypatch, tmp_dir):
+    class Dummy:
+        def history(self, period, interval):
+            dates = pd.date_range('2020-01-01', periods=3, freq='D')
+            return pd.DataFrame({
+                'Open':[1,2,3],
+                'High':[1,2,3],
+                'Low':[1,2,3],
+                'Close':[1,2,3],
+                'Volume':[100,200,300]
+            }, index=dates)
+    monkeypatch.setattr('etf_pipeline.yf.Ticker', lambda sym: Dummy())
+    download_prices(['TEST'], output_dir=str(tmp_dir))
+    $files = Get-ChildItem -Path $tmp_dir -Filter "TEST.csv"
+    assert ($files).Count -gt 0
+    $df = Import-Csv $files[0].FullName
+    $columns = $df | Get-Member -MemberType NoteProperty | Select-Object -ExpandProperty Name
+    assert $columns -eq 'Date','Open','High','Low','Close','Volume'
